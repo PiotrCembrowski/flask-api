@@ -3,73 +3,71 @@ from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import os
+from flask import request
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:postgres@localhost:5432/postgres"
+app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:root@localhost:5432/sf"
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-class Files(db.Model):
-    __tablename__ = 'files'
-
-    id = db.Column(db.Integer, primary_key=True)
-
-
 api = Api(app)
 
-files = [
-    {   
-        'id':'1',
-        'name':'First file',
-        'description': 'File about something',
-        'created_at': '1990/03/23',
-    },
-    {
-        'id':'2',
-        'name':'Second file',
-        'description': 'Second about something',
-        'created_at': '1990/03/23',
-    },
-    {
-        'id':'3',
-        'name':'Third file',
-        'description': 'Third about something',
-        'created_at': '1990/03/23',
-    },
-]
+class FilesList(db.Model):
+    __tablename__ = 'fileslist'
 
-class Files(Resource):
-    def get(self,name):
-        for file in files:
-           if file['name'] == name:
-               return file
-           
-        return {'name':None}, 404
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String())
 
-    def post(self,name):
-        
-        file = {'name':name}
+    def __init__(self, name):
+        self.name = name
 
-        files.append(file)
+    def __repr__(self):
+        return f"<File {self.name}>"
 
-        return file
+@app.route('/files', methods=['POST', 'GET'])
+def handle_files():
+    if request.method == 'POST':
+        if request.is_json:
+            data = request.get_json()
+            new_list = FilesList(name=data['name'])
+            db.session.add(new_list)
+            db.session.commit()
+            return {"message": f"list {new_list.name} has been created successfully."}
+        else:
+            return {"message": "The request payload is not a JSON format"}
+    
+    elif request.method == 'GET':
+        lists = FilesList.query.all()
+        results = [
+            {
+                "id": list.id,
+                "name": list.name,
+            } for list in lists
+        ]
+        return {"count": len(results), "lists": results}
 
-    def delete(self,name):
-        for ind,file in enumerate(files):
-            if file['name'] == name:
-                deleted_file = files.pop(ind)
-                print(deleted_file)
-                return {'note':'delete success'}
-            
-class AllFiles(Resource):
+@app.route('/files/<name>', methods=['GET', 'PUT', 'DELETE'])
+def handle_file(name):
+    list = FilesList.query.get_or_404(name)
 
-    def get(self):
-        return {'files':files}
-
-
-
-api.add_resource(Files, '/file/<string:name>')
-api.add_resource(AllFiles, '/files')
+    if request.method == 'GET':
+        response = {
+            "id": list.id,
+            "name": list.name,
+        }
+        return {"list": response}
+    
+    elif request.method == 'PUT':
+        data = request.get_json()
+        list.id = data['id']
+        list.name = data['name']
+        db.session.add(list)
+        db.session.commit()
+        return {"message": f"list {list.name} successfully updated"}
+    
+    elif request.method == "DELETE":
+        db.session.delete(list)
+        db.session.commit()
+        return {"message": f"List {list.name} successfully deleted."}
 
 if __name__ == '__main__':
     app.run(debug=True)
