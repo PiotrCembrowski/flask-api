@@ -127,9 +127,12 @@ def handle_upload():
             return {"message": "Error occurred."}
         if request.files:
             file = request.files['file']
-            print(request.files)
             filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            def inner():
+                global file_path
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            inner()
+            print(file_path)
             file.save(file_path)
             return {"message": f"You've uploaded {file.filename}"}
         else:
