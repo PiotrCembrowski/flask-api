@@ -1,3 +1,5 @@
+import json
+
 from flask import Flask, redirect, url_for, render_template, flash, session, \
     current_app, request, abort
 from flask_restful import Api
@@ -21,8 +23,20 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
-CORS(app, support_credentials=True)
+CORS(app, supports_credentials=True)
 
+# USER
+
+class User():
+    def __init__(self, id, username, password):
+        self.id = id
+        self.username = username
+        self.password = password
+
+    def __str__(self):
+        return f"User ID: {self.id}"
+
+# Files
 class FilesList(db.Model):
     __tablename__ = 'fileslist'
 
@@ -58,7 +72,7 @@ def handle_fileslists():
         return {"count": len(results), "lists": results}
 
 @app.route('/fileslists/<id>', methods=['GET', 'PUT', 'DELETE'])
-def handle_filslists(id):
+def handle_fileslists_by_id(id):
     list = FilesList.query.get_or_404(id)
 
     if request.method == 'GET':
@@ -93,26 +107,42 @@ class File(db.Model):
     list_id = db.Column(UUID(as_uuid=True))
     url = db.Column(db.String())
 
-    def __init__(self, name, description, url, file):
+    def __init__(self, name, description, url, list_id):
         self.name = name
         self.description = description
         self.url = url
-        self.file = file
+        self.list_id = list_id
 
     def __repr__(self):
         return f"<File {self.name}>"
+
+file_path = 'url'
+
+
+@app.route('/files/upload', methods=['POST'])
+def handle_upload():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            print('no file inside')
+            return {"message": "Error occurred."}
+        if request.files:
+            file = request.files['file']
+            print(request.files)
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            return {"message": f"You've uploaded {file.filename}"}
+        else:
+            return {"message": "Error occurred."}
 
 
 @app.route('/files', methods=['POST', 'GET'])
 def handle_files():
     if request.method == 'POST':
-        if request.is_json or request.files:
-            file = request.files['file']
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
+        if request.is_json:
             data = request.get_json()
-            new_file = File(name=data['name'], description=data['description'], url=file_path)
+            new_file = File(name=data['name'], description=data['description'],
+                            url=file_path, list_id=data['list_id'])
             db.session.add(new_file)
             db.session.commit()
             return {"message": f"file {new_file.name} has been created successfully."}
@@ -131,6 +161,31 @@ def handle_files():
             } for file in files
         ]
         return {"count": len(results), "files": results}
+
+
+@app.route('/files/<id>', methods=['GET', 'PUT', 'DELETE'])
+def handle_files_by_id(id):
+    file = File.query.get_or_404(id)
+
+    if request.method == 'GET':
+        response = {
+            "id": file.id,
+            "name": file.name,
+        }
+        return {"file": response}
+
+    elif request.method == 'PUT':
+        data = request.get_json()
+        file.id = data['id']
+        file.name = data['name']
+        db.session.add(file)
+        db.session.commit()
+        return {"message": f"list {file.name} successfully updated"}
+
+    elif request.method == "DELETE":
+        db.session.delete(file)
+        db.session.commit()
+        return {"message": f"List {file.name} successfully deleted."}
 
 
 # OAUTH
@@ -276,4 +331,4 @@ with app.app_context():
 
 
 if __name__ == "__main__":
-    app.run(port=8000, debug=True)
+    app.run(port=8080, debug=True)
