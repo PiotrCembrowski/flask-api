@@ -17,7 +17,8 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SUPER_SECRET_KEY')
 app.config['SECURITY_PASSWORD_SALT'] = os.getenv('SECURITY_PASSWORD_SALT')
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:root@localhost:5432/sf"
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+# postgres://piotrsf:PSAF1SwXRrN6F2sPTmN6lkC1vFDqbgPc@dpg-co77v2v109ks7383r7jg-a.oregon-postgres.render.com/sf_2ofl
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
