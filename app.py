@@ -2,13 +2,15 @@ from flask import Flask, redirect, url_for, render_template, flash, session, \
     current_app, request, abort
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import select, create_engine
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Session as sql_session
 from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
 from flask_cors import CORS
 from dotenv import load_dotenv
 from urllib.parse import urlencode
-import os, secrets, requests, uuid, functools
+import os, secrets, requests, uuid
 from werkzeug.utils import secure_filename
 
 load_dotenv()
@@ -24,6 +26,9 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
 CORS(app, supports_credentials=True)
+
+# creating engine for ORM sqlalchemy sessions
+engine = create_engine(os.getenv('DATABASE_URL'))
 
 login = LoginManager(app)
 login.init_app(app)
@@ -83,7 +88,6 @@ def logout():
 @app.route('/authorize/<provider>')
 def oauth2_authorize(provider):
     if not current_user.is_anonymous:
-        print('not annonim')
         return redirect(url_for('index'))
 
     provider_data = current_app.config['OAUTH2_PROVIDERS'].get(provider)
@@ -173,7 +177,6 @@ def oauth2_callback(provider):
 
     # log the user in
     login_user(user, remember=False, duration=None, force=False, fresh=True)
-    print(current_user)
     return redirect(url_for('index'))
 
 
@@ -199,28 +202,41 @@ class FilesList(db.Model):
 @app.route('/fileslists', methods=['POST', 'GET'])
 def handle_fileslists():
         if request.method == 'POST':
-            if not current_user.is_anonymous:
-                if request.is_json:
-                    data = request.get_json()
-                    new_list = FilesList(name=data['name'], user_id=data['user_id'])
-                    db.session.add(new_list)
-                    db.session.commit()
-                    return {"message": f"list {new_list.name} has been created successfully."}
-                else:
-                    return {"message": "The request payload is not a JSON format"}
+            # if not current_user.is_anonymous:
+            if request.is_json:
+                data = request.get_json()
+                new_list = FilesList(name=data['name'], user_id=data['user_id'])
+                db.session.add(new_list)
+                db.session.commit()
+                return {"message": f"list {new_list.name} has been created successfully."}
+            else:
+                return {"message": "The request payload is not a JSON format"}
 
         elif request.method == 'GET':
-            if current_user.is_authenticated:
-                print(current_user.id)
-                lists = FilesList.query.all()
-                results = [
-                    {
-                        "id": list.id,
-                        "name": list.name,
-                        "user_id": list.user_id
-                    } for list in lists
-                ]
-                return {"count": len(results), "lists": results}
+            # if current_user.is_authenticated:
+
+            # user_id = current_user.get_id()
+
+            session = sql_session(engine)
+            # stmt = select(FilesList).where(FilesList.user_id.in_([user_id]))
+            
+            # results = [
+            #     {
+            #         "id": list.id,
+            #         "name": list.name,
+            #         "user_id": list.user_id
+            #     } for list in session.scalars(stmt)
+            # ]
+
+            lists = FilesList.query.all()
+            results = [
+                {
+                    "id": list.id,
+                    "name": list.name,
+                    "user_id": list.user_id
+                } for list in lists
+            ]
+            return {"count": len(results), "lists": results}
 
 
 
@@ -275,7 +291,6 @@ file_path = 'url'
 def handle_upload():
     if request.method == 'POST':
         if 'file' not in request.files:
-            print('no file inside')
             return {"message": "Error occurred."}
         if request.files:
             file = request.files['file']
@@ -284,7 +299,6 @@ def handle_upload():
                 global file_path
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             inner()
-            print(file_path)
             file.save(file_path)
             return {"message": f"You've uploaded {file.filename}"}
         else:
