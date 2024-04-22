@@ -360,6 +360,20 @@ def handle_files_by_id(id):
     
 
 # VIEWS
+
+class View(db.Model):
+    __tablename__ = 'view'
+
+    id = db.Column(UUID(as_uuid=True), default=uuid.uuid4())
+    name = db.Column(db.String())
+    url = db.Column(db.String())
+
+    def __init__(self, name, url):
+        self.name   = name
+        self.url    = url
+    
+    def __repr__(self):
+        return f"name:{self.name}, url:{self.url}"
     
 @app.route('/views/<id>', methods=['GET'])
 def handle_views(id):
@@ -378,6 +392,10 @@ def handle_views(id):
 
     return {"count": len(result), "files": result}
         
+
+@app.route('views/token/<id>', methods=['GET'])
+def handle_token(id):
+
 
 
 with app.app_context():
