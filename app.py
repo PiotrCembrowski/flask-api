@@ -333,6 +333,7 @@ def handle_files():
         return {"count": len(results), "files": results}
 
 
+
 @app.route('/files/<id>', methods=['GET', 'PUT', 'DELETE'])
 def handle_files_by_id(id):
     file = File.query.get_or_404(id)
@@ -356,7 +357,27 @@ def handle_files_by_id(id):
         db.session.delete(file)
         db.session.commit()
         return {"message": f"List {file.name} successfully deleted."}
+    
 
+# VIEWS
+    
+@app.route('/views/<id>', methods=['GET'])
+def handle_views(id):
+    file = File.query.get_or_404(id)
+    if request.method == 'GET':
+        stack = select(File).where(File.id.in_([id]))
+
+        result = [
+            {
+                "id": file.id,
+                "name": file.name,
+                "description": file.description,
+                "url": file.url
+            } for file in session.scalars(stack)
+        ]
+
+    return {"count": len(result), "files": result}
+        
 
 
 with app.app_context():
