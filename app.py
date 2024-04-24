@@ -2,7 +2,7 @@ from flask import Flask, redirect, url_for, render_template, flash, session, \
     current_app, request, abort
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import select, create_engine
+from sqlalchemy import select, create_engine, MetaData, Table, Column, Integer, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Session as sql_session
 from flask_migrate import Migrate
@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from urllib.parse import urlencode
 import os, secrets, requests, uuid
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 UPLOAD_FOLDER = './static/uploads'
@@ -29,6 +30,7 @@ CORS(app, supports_credentials=True)
 
 # creating engine for ORM sqlalchemy sessions
 engine = create_engine(os.getenv('DATABASE_URL'))
+metadata = MetaData()
 
 login = LoginManager(app)
 login.init_app(app)
@@ -360,26 +362,38 @@ def handle_files_by_id(id):
     
 
 # VIEWS
-
-class View(db.Model):
-    __tablename__ = 'view'
-
-    id = db.Column(UUID(as_uuid=True), default=uuid.uuid4())
-    name = db.Column(db.String())
-    url = db.Column(db.String())
-
-    def __init__(self, name, url):
-        self.name   = name
-        self.url    = url
     
-    def __repr__(self):
-        return f"name:{self.name}, url:{self.url}"
+share_view = Table('share_view', metadata,
+                    Column('id', Integer, primary_key=True),
+                    Column('name', String),
+                    Column('description', String),
+                    Column('url', String)
+                   )
+
+
+metadata.create_all(engine)
     
-@app.route('/views/<id>', methods=['GET'])
+@app.route('/views/<id>', methods=['GET', 'POST'])
 def handle_views(id):
     file = File.query.get_or_404(id)
+
     if request.method == 'GET':
-        stack = select(File).where(File.id.in_([id]))
+        data = request.json()
+        files = [
+            {
+                "id": element.id,
+                "name": element.name,
+                "description": element.description,
+                "url": element.url
+            } for element in data
+        ]
+        
+        stack = select(File).where(File.id.in_([data.id]))
+
+        with engine.connect() as conn:
+            conn.execute(share_view.insert(), [
+
+            ])
 
         result = [
             {
@@ -393,8 +407,9 @@ def handle_views(id):
     return {"count": len(result), "files": result}
         
 
-@app.route('views/token/<id>', methods=['GET'])
+@app.route('/views/token/<id>', methods=['GET'])
 def handle_token(id):
+    pass
 
 
 
