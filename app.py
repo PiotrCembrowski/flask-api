@@ -231,6 +231,7 @@ def handle_fileslists():
             # ]
 
             lists = FilesList.query.all()
+            print(lists)
             results = [
                 {
                     "id": list.id,
@@ -405,14 +406,24 @@ def handle_views(id):
             id = file['id']
             stmt = select(File).where(File.id == id)
 
-            with sql_session(engine) as session:
-                for row in session.execute(stmt):
+            with engine.connect() as conn:
+                for row in conn.execute(stmt):
                     view.append(row)
-                    print('dziala')
                     print(row)
 
+    print(view)
 
-    return {"count": len(view), "files": view}
+    results = [
+        {
+            "id": file.id,
+            "name": file.name,
+            "description": file.description,
+            "url": file.url
+        } for file in view
+    ] 
+
+
+    return {"count": len(results), "files": results}
 
 
 @app.route('/views/token/<id>', methods=['GET'])
