@@ -399,20 +399,20 @@ def handle_views(id):
 
     if request.method == 'POST':
         data = request.get_json()
+        view = []
 
-        for element in data:
-            print(element['id'])
+        for file in data:
+            id = file['id']
+            stmt = select(File).where(File.id == id)
 
-        results = [
-            {
-                "id": file['id'],
-                "name": file['name']
-            } for file in data
-        ]
+            with sql_session(engine) as session:
+                for row in session.execute(stmt):
+                    view.append(row)
+                    print('dziala')
+                    print(row)
 
-        # stack = select(File).where(File.id.in_([data.id]))
 
-    return {"count": len(results), "files": results}
+    return {"count": len(view), "files": view}
 
 
 @app.route('/views/token/<id>', methods=['GET'])
