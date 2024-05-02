@@ -1,5 +1,5 @@
 from flask import Flask, redirect, url_for, render_template, flash, session, \
-    current_app, request, abort
+    current_app, request, abort, make_response, jsonify, Blueprint
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import select, create_engine, MetaData, Table, Column, Integer, String, DateTime, func
@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 import os, secrets, requests, uuid
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
 
 load_dotenv()
 UPLOAD_FOLDER = './static/uploads'
@@ -27,6 +28,10 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 api = Api(app)
 CORS(app, supports_credentials=True)
+jwt = JWTManager(app)
+
+# blueprints
+view_blueprints = Blueprint('views', __name__, template_folder='templates/views')
 
 # creating engine for ORM sqlalchemy sessions
 engine = create_engine(os.getenv('DATABASE_URL'))
@@ -390,16 +395,13 @@ def handle_files_by_id(id):
 #     func.count(share_view.c.name)
 # ).group_by(share_view.c.name)
 
-# with engine.connect() as conn:
-#     result = conn.execute(query).fetchall()
-#     for row in result:
-#         print(row)
 
 @app.route('/view/<id>', methods=['GET', 'POST'])
 def handle_views(id):
 
     if request.method == 'POST':
         data = request.get_json()
+        global view
         view = []
 
         for file in data:
@@ -409,9 +411,6 @@ def handle_views(id):
             with engine.connect() as conn:
                 for row in conn.execute(stmt):
                     view.append(row)
-                    print(row)
-
-    print(view)
 
     results = [
         {
@@ -422,7 +421,7 @@ def handle_views(id):
         } for file in view
     ] 
 
-
+    render_template('/views/view.html', results=results)
     return {"count": len(results), "files": results}
 
 
