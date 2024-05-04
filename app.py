@@ -369,31 +369,31 @@ def handle_files_by_id(id):
 
 # VIEWS
     
-# share_view = Table('share_view', metadata,
-#                     Column('id', Integer, primary_key=True),
-#                     Column('name', String),
-#                     Column('description', String),
-#                     Column('url', String)
-#                    )
+share_view = Table('share_view', metadata,
+                    Column('id', Integer, primary_key=True),
+                    Column('name', String),
+                    Column('description', String),
+                    Column('url', String)
+                   )
 
 
-# metadata.create_all(engine)
+metadata.create_all(engine)
 
-# with engine.connect() as conn:
-#     conn.execute(share_view.insert(), [
-#         {'name': 'nowka', 'description': 'blabla', 'url': 'urlpath'},
-#         {'name': 'nowka2', 'description': 'blabla', 'url': 'urlpath2'},
-#         {'name': 'nowka3', 'description': 'blabla', 'url': 'urlpath3'}
-#     ]) 
+with engine.connect() as conn:
+    conn.execute(share_view.insert(), [
+        {'name': 'nowka', 'description': 'blabla', 'url': 'urlpath'},
+        {'name': 'nowka2', 'description': 'blabla', 'url': 'urlpath2'},
+        {'name': 'nowka3', 'description': 'blabla', 'url': 'urlpath3'}
+    ]) 
     
-#     conn.commit()
+    conn.commit()
 
-# query = select().select_from(share_view).with_only_columns(share_view.c.name, share_view.c.description, share_view.c.url)
+query = select().select_from(share_view).with_only_columns(share_view.c.name, share_view.c.description, share_view.c.url)
 
-# query = select().select_from(share_view).with_only_columns(
-#     share_view.c.name,
-#     func.count(share_view.c.name)
-# ).group_by(share_view.c.name)
+with engine.connect() as conn:
+    result = conn.execute(query).fetchall()
+    for row in result:
+        print(row)
 
 
 @app.route('/views/<id>', methods=['GET', 'POST'])
@@ -411,7 +411,7 @@ def handle_views(id):
             with engine.connect() as conn:
                 for row in conn.execute(stmt):
                     view.append(row)
-    print(id + ' - id to jest')
+
     results = [
         {
             "id": file.id,
