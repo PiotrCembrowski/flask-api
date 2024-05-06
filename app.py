@@ -277,7 +277,7 @@ def handle_fileslists_by_id(id):
 class File(db.Model):
     __tablename__ = 'file'
 
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4())
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = db.Column(db.String())
     description = db.Column(db.String())
     list_id = db.Column(UUID(as_uuid=True))
@@ -370,40 +370,23 @@ def handle_files_by_id(id):
 # VIEWS
     
 share_view = Table('share_view', metadata,
-                    Column('id', Integer, primary_key=True),
+                    Column('id', UUID, primary_key=True),
                     Column('name', String),
                     Column('description', String),
-                    Column('url', String)
+                    Column('url', String),
                    )
 
 
 metadata.create_all(engine)
-
-with engine.connect() as conn:
-    conn.execute(share_view.insert(), [
-        {'name': 'nowka', 'description': 'blabla', 'url': 'urlpath'},
-        {'name': 'nowka2', 'description': 'blabla', 'url': 'urlpath2'},
-        {'name': 'nowka3', 'description': 'blabla', 'url': 'urlpath3'}
-    ]) 
-    
-    conn.commit()
-
-query = select().select_from(share_view).with_only_columns(share_view.c.name, share_view.c.description, share_view.c.url)
-
-with engine.connect() as conn:
-    result = conn.execute(query).fetchall()
-    for row in result:
-        print(row)
 
 
 @app.route('/views/<id>', methods=['GET', 'POST'])
 def handle_views(id):
 
     global view
+    view = []
     if request.method == 'POST':
         data = request.get_json()
-        view = []
-
         for file in data:
             id = file['id']
             stmt = select(File).where(File.id == id)
@@ -411,27 +394,33 @@ def handle_views(id):
             with engine.connect() as conn:
                 for row in conn.execute(stmt):
                     view.append(row)
-
-    results = [
+    
+    dict = [
         {
             "id": file.id,
             "name": file.name,
             "description": file.description,
+            "list_id": file.list_id,
             "url": file.url
         } for file in view
-    ] 
+    ]
 
-    return render_template(f'/views/view.html', results=results)
+    with engine.connect() as conn:
+        conn.execute(share_view.insert(), dict)
+        
+    query = select().select_from(share_view).with_only_columns(share_view.name, share_view.description)
+    
+    with engine.connect() as conn:
+        results = conn.execute(query).fetchall()
 
+    print(results)
 
-@app.route('/views/token/<id>', methods=['GET'])
-def handle_token(id):
-    print(id)
-    return id
+    return render_template(f'/views/view.html', results=results, id=id)
 
 
 with app.app_context():
     db.create_all()
+    
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
