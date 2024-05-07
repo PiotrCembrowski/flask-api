@@ -2,9 +2,12 @@ from flask import Flask, redirect, url_for, render_template, flash, session, \
     current_app, request, abort, Blueprint
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
+import sqlalchemy
 from sqlalchemy import select, create_engine, MetaData, Table, Column, Integer, String, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Session as sql_session
+from sqlalchemy.sql import text
+from sqlalchemy_views import CreateView, DropView
 from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
 from flask_cors import CORS
@@ -368,54 +371,42 @@ def handle_files_by_id(id):
     
 
 # VIEWS
-    
-share_view = Table('share_view', metadata,
-                    Column('id', UUID, primary_key=True),
-                    Column('name', String),
-                    Column('description', String),
-                    Column('url', String),
-                   )
-
-
-metadata.create_all(engine)
-
 
 @app.route('/views/<id>', methods=['GET', 'POST'])
 def handle_views(id):
-
+    
     global view
     view = []
+    values = ()
     if request.method == 'POST':
         data = request.get_json()
         for file in data:
             id = file['id']
             stmt = select(File).where(File.id == id)
-
+            values += (id,)
             with engine.connect() as conn:
                 for row in conn.execute(stmt):
                     view.append(row)
+       
+    print(f'to jest sprawdzian {values}')             
+    view = Table('file', MetaData())
+    definition = text(f"SELECT * FROM file WHERE id IN {values}")
+    create_view = CreateView(view, definition)
     
-    dict = [
-        {
-            "id": file.id,
-            "name": file.name,
-            "description": file.description,
-            "list_id": file.list_id,
-            "url": file.url
-        } for file in view
-    ]
+    print(create_view)
+    # results = [
+    #     {
+    #         "id": file.id,
+    #         "name": file.name,
+    #         "description": file.description,
+    #         "list_id": file.list_id,
+    #         "url": file.url
+    #     } for file in view
+    # ]
 
-    with engine.connect() as conn:
-        conn.execute(share_view.insert(), dict)
-        
-    query = select().select_from(share_view).with_only_columns(share_view.name, share_view.description)
-    
-    with engine.connect() as conn:
-        results = conn.execute(query).fetchall()
+    # print(results)    
 
-    print(results)
-
-    return render_template(f'/views/view.html', results=results, id=id)
+    return render_template(f'/views/view.html', results=values, id=id)
 
 
 with app.app_context():
