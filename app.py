@@ -7,7 +7,6 @@ from sqlalchemy import select, create_engine, MetaData, Table, Column, Integer, 
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Session as sql_session
 from sqlalchemy.sql import text
-from sqlalchemy_views import CreateView, DropView
 from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user
 from flask_cors import CORS
@@ -375,36 +374,20 @@ def handle_files_by_id(id):
 @app.route('/views/<id>', methods=['GET', 'POST'])
 def handle_views(id):
     
-    global view
-    view = []
     values = ()
     if request.method == 'POST':
         data = request.get_json()
         for file in data:
-            id = file['id']
-            stmt = select(File).where(File.id == id)
-            values += (id,)
-            with engine.connect() as conn:
-                for row in conn.execute(stmt):
-                    view.append(row)
-       
-    print(f'to jest sprawdzian {values}')             
-    view = Table('file', MetaData())
-    definition = text(f"SELECT * FROM file WHERE id IN {values}")
-    create_view = CreateView(view, definition)
-    
-    print(create_view)
-    # results = [
-    #     {
-    #         "id": file.id,
-    #         "name": file.name,
-    #         "description": file.description,
-    #         "list_id": file.list_id,
-    #         "url": file.url
-    #     } for file in view
-    # ]
+            file_id = file['id']
+            if len(values) == 0:
+                values += (file_id, id)
+            else:
+                values += (file_id,)
 
-    # print(results)    
+    with engine.begin() as conn:
+        name = id.replace('-', '')
+        nameView = name.translate(str.maketrans('','','1234567890'))
+        conn.execute(text(""f'CREATE VIEW {nameView} AS SELECT * FROM file WHERE id IN {values};'""))
 
     return render_template(f'/views/view.html', results=values, id=id)
 
