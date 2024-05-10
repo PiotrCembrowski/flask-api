@@ -371,9 +371,14 @@ def handle_files_by_id(id):
 
 # VIEWS
 
+def extract_letters_from_id(id):
+    string = id.replace('-','')
+    return string.translate(str.maketrans('','','1234567890'))
+
 @app.route('/views/<id>', methods=['GET', 'POST'])
 def handle_views(id):
     
+    nameView = extract_letters_from_id(id)
     values = ()
     if request.method == 'POST':
         data = request.get_json()
@@ -384,13 +389,13 @@ def handle_views(id):
             else:
                 values += (file_id,)
 
+    if len(values) == 0:
+        return render_template("/views/error.html")
     with engine.begin() as conn:
-        name = id.replace('-', '')
-        nameView = name.translate(str.maketrans('','','1234567890'))
         conn.execute(text(""f'CREATE VIEW {nameView} AS SELECT * FROM file WHERE id IN {values};'""))
-
-    return render_template(f'/views/view.html', results=values, id=id)
-
+    
+    return render_template(f'/views/{nameView}.html', results=values, id=nameView)
+ 
 
 with app.app_context():
     db.create_all()
