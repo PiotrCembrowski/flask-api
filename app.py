@@ -377,7 +377,7 @@ def extract_letters_from_id(id):
 
 @app.route('/views/<id>', methods=['GET', 'POST'])
 def handle_views(id):
-    
+    print(id)
     nameView = extract_letters_from_id(id)
     values = ()
     if request.method == 'POST':
@@ -389,12 +389,15 @@ def handle_views(id):
             else:
                 values += (file_id,)
 
-    if len(values) == 0:
-        return render_template("/views/error.html")
-    with engine.begin() as conn:
-        conn.execute(text(""f'CREATE VIEW {nameView} AS SELECT * FROM file WHERE id IN {values};'""))
+        if len(values) == 0:
+            return render_template("/views/error.html")
+        with engine.begin() as conn:
+            conn.execute(text(""f'CREATE VIEW {nameView} AS SELECT * FROM file WHERE id IN {values};'""))
     
-    return render_template(f'/views/{nameView}.html', results=values, id=nameView)
+        return render_template(f'/views/{nameView}.html', results=values, id=nameView)
+
+    if request.method == 'GET':
+        return render_template(f'/views/{nameView}.html', result=values)
  
 
 with app.app_context():
