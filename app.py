@@ -377,8 +377,9 @@ def extract_letters_from_id(id):
 
 @app.route('/views/<id>', methods=['GET', 'POST'])
 def handle_views(id):
-    print(id)
+
     nameView = extract_letters_from_id(id)
+    print(nameView)
     values = ()
     if request.method == 'POST':
         data = request.get_json()
@@ -394,10 +395,16 @@ def handle_views(id):
         with engine.begin() as conn:
             conn.execute(text(""f'CREATE VIEW {nameView} AS SELECT * FROM file WHERE id IN {values};'""))
     
-        return render_template(f'/views/{nameView}.html', results=values, id=nameView)
+        return render_template(f'/views/view.html', results=values, id=nameView)
 
     if request.method == 'GET':
-        return render_template(f'/views/{nameView}.html', result=values)
+        view = []
+        with engine.begin() as conn:
+            results = conn.execute(text(""f'SELECT * FROM {nameView}'""))
+            for row in results:
+                view.append(row)
+                
+        return render_template(f'/views/view.html', results=view)
  
 
 with app.app_context():
