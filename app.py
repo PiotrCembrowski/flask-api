@@ -2,8 +2,7 @@ from flask import Flask, redirect, url_for, render_template, flash, session, \
     current_app, request, abort, Blueprint
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
-import sqlalchemy
-from sqlalchemy import select, create_engine, MetaData, Table, Column, Integer, String, DateTime, func
+from sqlalchemy import select, create_engine, MetaData
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Session as sql_session
 from sqlalchemy.sql import text
@@ -16,11 +15,23 @@ import os, secrets, requests, uuid
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://472cbe05f98fa5bd96ca1abd6c521c34@o4507260239609856.ingest.de.sentry.io/4507260242296912",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
+)
 
 load_dotenv()
 UPLOAD_FOLDER = './static/uploads'
 ALLOWED_EXTENSIONS = {'txt', 'pdf'}
-app = Flask(__name__)
+app = Flask(__name__, static_folder="./dist", static_url_path='/')
 app.config['SECRET_KEY'] = os.getenv('SUPER_SECRET_KEY')
 app.config['SECURITY_PASSWORD_SALT'] = os.getenv('SECURITY_PASSWORD_SALT')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
@@ -66,7 +77,7 @@ app.config['OAUTH2_PROVIDERS'] = {
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4())
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = db.Column(db.String(64), nullable=False)
     email = db.Column(db.String(64), unique=True, nullable=False)
 
@@ -84,7 +95,11 @@ def load_user(id_):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return app.send_static_file('index.html')
+
+@app.route('/admin')
+def admin():
+    return app.send_static_file('index.html')
 
 
 @app.route('/logout')
@@ -196,7 +211,7 @@ def oauth2_callback(provider):
 class FilesList(db.Model):
     __tablename__ = 'fileslist'
 
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4())
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = db.Column(db.String())
     user_id = db.Column(UUID(as_uuid=True))
 
@@ -211,42 +226,42 @@ class FilesList(db.Model):
 @app.route('/fileslists', methods=['POST', 'GET'])
 def handle_fileslists():
         if request.method == 'POST':
-            # if not current_user.is_anonymous:
-            if request.is_json:
-                data = request.get_json()
-                new_list = FilesList(name=data['name'], user_id=data['user_id'])
-                db.session.add(new_list)
-                db.session.commit()
-                return {"message": f"list {new_list.name} has been created successfully."}
-            else:
-                return {"message": "The request payload is not a JSON format"}
+            if current_user.is_authenticated:
+                if request.is_json:
+                    data = request.get_json()
+                    user_id = current_user.get_id()
+                    new_list = FilesList(name=data['name'], user_id=user_id)
+                    db.session.add(new_list)
+                    db.session.commit()
+                    return {"message": f"list {new_list.name} has been created successfully."}
+                else:
+                    return {"message": "The request payload is not a JSON format"}
 
         elif request.method == 'GET':
-            # if current_user.is_authenticated:
+            if current_user.is_authenticated:
 
-            # user_id = current_user.get_id()
+                user_id = current_user.get_id()
 
-            session = sql_session(engine)
-            # stmt = select(FilesList).where(FilesList.user_id.in_([user_id]))
-            
-            # results = [
-            #     {
-            #         "id": list.id,
-            #         "name": list.name,
-            #         "user_id": list.user_id
-            #     } for list in session.scalars(stmt)
-            # ]
+                session = sql_session(engine)
+                stmt = select(FilesList).where(FilesList.user_id.in_([user_id]))
+                
+                results = [
+                    {
+                        "id": list.id,
+                        "name": list.name,
+                        "user_id": list.user_id
+                    } for list in session.scalars(stmt)
+                ]
 
-            lists = FilesList.query.all()
-            print(lists)
-            results = [
-                {
-                    "id": list.id,
-                    "name": list.name,
-                    "user_id": list.user_id
-                } for list in lists
-            ]
-            return {"count": len(results), "lists": results}
+                # lists = FilesList.query.all()
+                # results = [
+                #     {
+                #         "id": list.id,
+                #         "name": list.name,
+                #         "user_id": list.user_id
+                #     } for list in lists
+                # ]
+                return {"count": len(results), "lists": results}
 
 
 
@@ -395,7 +410,7 @@ def handle_views(id):
         with engine.begin() as conn:
             conn.execute(text(""f'CREATE VIEW {nameView} AS SELECT * FROM file WHERE id IN {values};'""))
     
-        return render_template(f'/views/view.html', results=values, id=nameView)
+        return render_template(f'/views/view.html', results=values)
 
     if request.method == 'GET':
         view = []
