@@ -1,5 +1,5 @@
 from flask import Flask, redirect, url_for, render_template, flash, session, \
-    current_app, request, abort, Blueprint
+    current_app, request, abort, Blueprint, jsonify
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import select, create_engine, MetaData
@@ -109,6 +109,7 @@ def logout():
     return redirect(url_for('index'))
 
 
+
 @app.route('/authorize/<provider>')
 def oauth2_authorize(provider):
     if not current_user.is_anonymous:
@@ -204,6 +205,20 @@ def oauth2_callback(provider):
     return redirect(url_for('index'))
 
 
+
+@app.route('/@me')
+def get_current_user():
+    user_id = session.get("_user_id")
+    
+    if not user_id:
+        print(session)
+        return jsonify({"error": "Unauthorized"}, 401)
+    
+    user = User.query.filter_by(id=user_id).first()
+    return jsonify({
+        "id": user.id,
+        "email": user.email
+    })
 
 
 
