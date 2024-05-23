@@ -101,13 +101,16 @@ def index():
 def admin():
     return app.send_static_file('index.html')
 
+@app.route('/signin')
+def signin():
+    return app.send_static_file('index.html')
+
 
 @app.route('/logout')
 def logout():
     logout_user()
     flash('You have been logged out.')
     return redirect(url_for('index'))
-
 
 
 @app.route('/authorize/<provider>')
@@ -131,6 +134,7 @@ def oauth2_authorize(provider):
         'scope': ' '.join(provider_data['scopes']),
         'state': session['oauth2_state'],
     })
+
 
     # redirect the user to the OAuth2 provider authorization URL
     return redirect(provider_data['authorize_url'] + '?' + qs)
@@ -211,14 +215,10 @@ def get_current_user():
     user_id = session.get("_user_id")
     
     if not user_id:
-        print(session)
-        return jsonify({"error": "Unauthorized"}, 401)
+        return jsonify(401)
     
     user = User.query.filter_by(id=user_id).first()
-    return jsonify({
-        "id": user.id,
-        "email": user.email
-    })
+    return jsonify(200)
 
 
 
@@ -324,8 +324,8 @@ class File(db.Model):
     def __repr__(self):
         return f"<File {self.name}>"
 
-file_path = 'url'
 
+file_path = 'url'
 
 @app.route('/files/upload', methods=['POST'])
 def handle_upload():
@@ -335,16 +335,12 @@ def handle_upload():
         if request.files:
             file = request.files['file']
             filename = secure_filename(file.filename)
-            def inner():
-                global file_path
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            inner()
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
             return {"message": f"You've uploaded {file.filename}"}
         else:
             return {"message": "Error occurred."}
-
-
+        
 
 @app.route('/files', methods=['POST', 'GET'])
 def handle_files():
