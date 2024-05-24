@@ -323,10 +323,8 @@ class File(db.Model):
 
     def __repr__(self):
         return f"<File {self.name}>"
-
-
-file_path = 'url'
-
+    
+    
 @app.route('/files/upload', methods=['POST'])
 def handle_upload():
     if request.method == 'POST':
@@ -334,13 +332,15 @@ def handle_upload():
             return {"message": "Error occurred."}
         if request.files:
             file = request.files['file']
+            global file_path
+            file_path = 'empty'
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
             return {"message": f"You've uploaded {file.filename}"}
         else:
             return {"message": "Error occurred."}
-        
+
 
 @app.route('/files', methods=['POST', 'GET'])
 def handle_files():
@@ -355,6 +355,8 @@ def handle_files():
         else:
             return {"message": "The request payload is not a JSON format"}
 
+            
+            
     elif request.method == 'GET':
         files = File.query.all()
         results = [
