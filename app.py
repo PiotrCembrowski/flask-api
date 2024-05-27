@@ -1,5 +1,5 @@
 from flask import Flask, redirect, url_for, render_template, flash, session, \
-    current_app, request, abort, Blueprint, jsonify
+    current_app, request, abort, Blueprint, jsonify, send_from_directory, send_file
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import select, create_engine, MetaData
@@ -268,14 +268,6 @@ def handle_fileslists():
                     } for list in session.scalars(stmt)
                 ]
 
-                # lists = FilesList.query.all()
-                # results = [
-                #     {
-                #         "id": list.id,
-                #         "name": list.name,
-                #         "user_id": list.user_id
-                #     } for list in lists
-                # ]
                 return {"count": len(results), "lists": results}
 
 
@@ -333,9 +325,12 @@ def handle_upload():
         if request.files:
             file = request.files['file']
             global file_path
+            global file_path_url
+            file_path_url = 'empty'
             file_path = 'empty'
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file_path_url = os.path.join('static/uploads', filename)
             file.save(file_path)
             return {"message": f"You've uploaded {file.filename}"}
         else:
@@ -348,7 +343,7 @@ def handle_files():
         if request.is_json:
             data = request.get_json()
             new_file = File(name=data['name'], description=data['description'],
-                            url=file_path, list_id=data['list_id'])
+                            url=file_path_url, list_id=data['list_id'])
             db.session.add(new_file)
             db.session.commit()
             return {"message": f"file {new_file.name} has been created successfully."}
@@ -407,7 +402,7 @@ def extract_letters_from_id(id):
 def handle_views(id):
 
     nameView = extract_letters_from_id(id)
-    print(nameView)
+
     values = ()
     if request.method == 'POST':
         data = request.get_json()
@@ -434,6 +429,12 @@ def handle_views(id):
                 
         return render_template(f'/views/view.html', results=view)
  
+@app.route('/donwload/<id>', methods=['GET']) 
+def download(id):
+    file = File(name=None, list_id=None, description=None, url=None).query.filter_by(id=id).first()
+    return send_file(
+        file.url,file.name, as_attachment=True
+    )
 
 with app.app_context():
     db.create_all()
